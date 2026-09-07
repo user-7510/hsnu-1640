@@ -141,9 +141,33 @@
     color: var(--muted);
     font-size: 0.8rem;
   }
+
+  #noticeBar {
+    display: none;
+    background: #fbf1da;
+    border-top: 1px solid var(--gold);
+    border-bottom: 1px solid var(--gold);
+    color: var(--ink);
+    font-size: 0.85rem;
+    padding: 10px 24px;
+    text-align: center;
+  }
+
+  #noticeBar .notice-label {
+    font-weight: 700;
+    color: var(--gold);
+    margin-right: 8px;
+  }
+
+  #noticeBar .notice-item + .notice-item::before {
+    content: "・";
+    margin: 0 8px;
+    color: var(--muted);
+  }
 </style>
 </head>
 <body>
+<div id="noticeBar"></div>
 <main>
   <h1>小考日程表</h1>
   <p class="subtitle">HSNU 1640 小考日程表</p>
@@ -158,15 +182,11 @@
   <section>
     <h2>行事曆</h2>
     <div class="calendar-wrap">
-      <!--
-        將下方 src 換成自己 Google 日曆的公開嵌入網址，
-        取得方式請見部署步驟說明。
-      -->
       <iframe src="https://calendar.google.com/calendar/embed?src=c_e6ceeab77c8cea8863b2e8df34854ce4b8ca0e4a859ad3118ac61e08fa343fdd%40group.calendar.google.com&ctz=Asia%2FTaipei" style="border: 0" width="800" height="600" frameborder="0" scrolling="no"></iframe>
     </div>
   </section>
 
-  <footer>日程如有不齊全請私訊我</footer>
+  <footer>所有內容仍以學校公告為準；日程如有不齊全請私訊我</footer>
 </main>
 
 <script>
@@ -224,6 +244,24 @@
     });
   }
 
+  function renderNotice(rows) {
+    const bar = document.getElementById("noticeBar");
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    const upcoming = rows
+      .filter(r => r.date && r.date >= todayStr)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (upcoming.length === 0) return;
+
+    const items = upcoming
+      .map(r => `<span class="notice-item">${r.date} ${r.range || ""}</span>`)
+      .join("");
+
+    bar.innerHTML = `<span class="notice-label">近期重要事項</span>${items}`;
+    bar.style.display = "block";
+  }
+
   fetch("calender.csv", { cache: "no-store" })
     .then(res => {
       if (!res.ok) throw new Error("找不到 calender.csv");
@@ -234,7 +272,13 @@
       document.getElementById("examList").innerHTML =
         `<li class="status-msg">讀取 calender.csv 失敗：${err.message}</li>`;
     });
+
+  fetch("important.csv", { cache: "no-store" })
+    .then(res => (res.ok ? res.text() : ""))
+    .then(text => text && renderNotice(parseCsv(text)))
+    .catch(() => {});
 </script>
 </body>
 </html>
+
 
