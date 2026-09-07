@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小考時程表</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;700&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --ink: #1f2a44;
+    --paper: #faf7f0;
+    --rule: #d9d3c1;
+    --gold: #b9902a;
+    --soon: #c1502e;
+    --done: #6b8f71;
+    --muted: #6b6558;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Noto Sans TC", sans-serif;
+    line-height: 1.7;
+  }
+
+  main {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 56px 24px 96px;
+  }
+
+  h1 {
+    font-family: "Noto Serif TC", serif;
+    font-weight: 700;
+    font-size: 2rem;
+    margin: 0 0 8px;
+  }
+
+  .subtitle {
+    color: var(--muted);
+    margin: 0 0 48px;
+    font-size: 0.95rem;
+  }
+
+  section + section { margin-top: 64px; }
+
+  h2 {
+    font-family: "Noto Serif TC", serif;
+    font-size: 1.3rem;
+    font-weight: 500;
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 12px;
+    margin-bottom: 0;
+  }
+
+  #examList {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  #examList li {
+    display: grid;
+    grid-template-columns: 88px 1fr;
+    gap: 4px 20px;
+    padding: 20px 0;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  #examList li.next {
+    border-left: 3px solid var(--soon);
+    padding-left: 16px;
+    margin-left: -19px;
+  }
+
+  #examList li.past { opacity: 0.5; }
+
+  .exam-date {
+    font-family: "Noto Serif TC", serif;
+    font-weight: 700;
+    font-size: 1.05rem;
+    color: var(--ink);
+    white-space: nowrap;
+  }
+
+  .exam-weekday {
+    display: block;
+    font-family: "Noto Sans TC", sans-serif;
+    font-weight: 400;
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  .exam-subject {
+    font-weight: 700;
+    grid-column: 2;
+  }
+
+  .exam-range {
+    grid-column: 2;
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+
+  .tag {
+    display: inline-block;
+    font-size: 0.72rem;
+    color: var(--soon);
+    border: 1px solid var(--soon);
+    border-radius: 3px;
+    padding: 1px 6px;
+    margin-left: 8px;
+    vertical-align: middle;
+  }
+
+  .status-msg {
+    color: var(--muted);
+    padding: 20px 0;
+  }
+
+  .calendar-wrap {
+    margin-top: 24px;
+    border: 1px solid var(--rule);
+    background: #fff;
+  }
+
+  .calendar-wrap iframe {
+    display: block;
+    width: 100%;
+    height: 560px;
+    border: 0;
+  }
+
+  footer {
+    margin-top: 64px;
+    color: var(--muted);
+    font-size: 0.8rem;
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>小考時程表</h1>
+  <p class="subtitle">HSNU 1640 小考日程表</p>
+
+  <section>
+    <h2>近期小考</h2>
+    <ul id="examList">
+      <li class="status-msg">讀取中…</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>行事曆</h2>
+    <div class="calendar-wrap">
+      <!--
+        將下方 src 換成自己 Google 日曆的公開嵌入網址，
+        取得方式請見部署步驟說明。
+      -->
+      <iframe
+        src="https://calendar.google.com/calendar/embed?src=YOUR_CALENDAR_ID%40group.calendar.google.com&ctz=Asia%2FTaipei"
+        loading="lazy">
+      </iframe>
+    </div>
+  </section>
+
+  <footer>日程如有不齊全請私訊我</footer>
+</main>
+
+<script>
+  const weekdayNames = ["日", "一", "二", "三", "四", "五", "六"];
+
+  function parseCsv(text) {
+    const lines = text.trim().split(/\r?\n/);
+    const header = lines.shift().split(",").map(h => h.trim());
+    return lines
+      .filter(line => line.trim().length > 0)
+      .map(line => {
+        const cells = line.split(",");
+        const row = {};
+        header.forEach((key, i) => {
+          row[key] = (cells[i] ?? "").trim();
+        });
+        return row;
+      });
+  }
+
+  function renderExams(rows) {
+    const list = document.getElementById("examList");
+    list.innerHTML = "";
+
+    const todayStr = new Date().toISOString().slice(0, 10);
+
+    const valid = rows
+      .filter(r => r.date)
+      .sort((a, b) => a.date.localeCompare(b.date));
+
+    if (valid.length === 0) {
+      list.innerHTML = '<li class="status-msg">目前沒有小考資料</li>';
+      return;
+    }
+
+    let nextMarked = false;
+
+    valid.forEach(row => {
+      const li = document.createElement("li");
+      const isPast = row.date < todayStr;
+      const isNext = !isPast && !nextMarked;
+      if (isNext) nextMarked = true;
+
+      li.className = isPast ? "past" : (isNext ? "next" : "");
+
+      const d = new Date(row.date + "T00:00:00");
+      const weekday = isNaN(d) ? "" : weekdayNames[d.getDay()];
+
+      li.innerHTML = `
+        <div class="exam-date">${row.date}<span class="exam-weekday">週${weekday}</span></div>
+        <div class="exam-subject">${row.subject || ""}${isNext ? '<span class="tag">最近</span>' : ""}</div>
+        <div class="exam-range">${row.range || ""}</div>
+      `;
+      list.appendChild(li);
+    });
+  }
+
+  fetch("calender.csv", { cache: "no-store" })
+    .then(res => {
+      if (!res.ok) throw new Error("找不到 calender.csv");
+      return res.text();
+    })
+    .then(text => renderExams(parseCsv(text)))
+    .catch(err => {
+      document.getElementById("examList").innerHTML =
+        `<li class="status-msg">讀取 calender.csv 失敗：${err.message}</li>`;
+    });
+</script>
+</body>
+</html>
+
